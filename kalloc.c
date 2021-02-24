@@ -15,8 +15,8 @@ extern char end[]; // first address after kernel loaded from ELF file
 
 struct run {
   struct run *next;
+  struct run *prev;
 };
-
 struct {
   struct spinlock lock;
   int use_lock;
@@ -70,10 +70,24 @@ kfree(char *v)
   if(kmem.use_lock)
     acquire(&kmem.lock);
   r = (struct run*)v;
-  r->next = kmem.freelist;
-  kmem.freelist = r;
+  if(kmem.freelist){
+	struct run *p;
+        p = kmem.freelist;
+        while(p->next){
+                p = p->next;
+        }
+	r->next = p->next;
+        p->next = r;
+        r->prev = p;
+  }
+  else{
+	r->next = kmem.freelist;
+        r->prev = r;
+        kmem.freelist = r;
+  }
   if(kmem.use_lock)
-    release(&kmem.lock);
+  	release(&kmem.lock);
+ 
 }
 
 // Allocate one 4096-byte page of physical memory.
@@ -87,8 +101,12 @@ kalloc(void)
   if(kmem.use_lock)
     acquire(&kmem.lock);
   r = kmem.freelist;
-  if(r)
+  if(r){
     kmem.freelist = r->next;
+    struct run *p;
+    p = r->next;
+    p->prev = p;
+  }
   if(kmem.use_lock)
     release(&kmem.lock);
   return (char*)r;
