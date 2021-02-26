@@ -15,13 +15,15 @@ extern char end[]; // first address after kernel loaded from ELF file
 
 struct run {
   struct run *next;
-  struct run *prev;
+  // double Linked list
+  // struct run *prev;
 };
-//struct run *q;
+
 struct {
   struct spinlock lock;
   int use_lock;
   struct run *freelist;
+  struct run *tail;
 } kmem;
 
 // Initialization happens in two phases.
@@ -72,24 +74,18 @@ kfree(char *v)
     acquire(&kmem.lock);
   r = (struct run*)v;
   if(kmem.freelist){
-	struct run *p;
-	p = kmem.freelist;
-//        while(p->next){
-//                p = p->next;
-//        }
-//	r->next = p->next;
-//        p->next = r;
-//        r->prev = p;
-	r->prev = p->prev;
- 	p->prev = r;
-	r->next = p;
-	kmem.freelist = r;	
+    struct run *p;
+    p = kmem.tail;
+    r->next = p->next;  
+    p->next = r;
+    kmem.tail = r;
   }
   else{
-	r->next = kmem.freelist;
-        r->prev = kmem.freelist;
-        kmem.freelist = r;
+    r->next = kmem.freelist;
+    kmem.freelist = r;
+    kmem.tail = r;
   }
+
   if(kmem.use_lock)
   	release(&kmem.lock);
  
@@ -108,11 +104,8 @@ kalloc(void)
   r = kmem.freelist;
   if(r){
     kmem.freelist = r->next;
-    struct run *p;
-    p = r->next;
-    if(p)
-    	p->prev = r->prev;
-    r->next = r->prev;
+    if(!r->next)
+      kmem.tail = r->next;
   }
   if(kmem.use_lock)
     release(&kmem.lock);
