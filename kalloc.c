@@ -17,6 +17,7 @@ struct run {
   struct run *next;
   struct run *prev;
 };
+//struct run *q;
 struct {
   struct spinlock lock;
   int use_lock;
@@ -72,17 +73,21 @@ kfree(char *v)
   r = (struct run*)v;
   if(kmem.freelist){
 	struct run *p;
-        p = kmem.freelist;
-        while(p->next){
-                p = p->next;
-        }
-	r->next = p->next;
-        p->next = r;
-        r->prev = p;
+	p = kmem.freelist;
+//        while(p->next){
+//                p = p->next;
+//        }
+//	r->next = p->next;
+//        p->next = r;
+//        r->prev = p;
+	r->prev = p->prev;
+ 	p->prev = r;
+	r->next = p;
+	kmem.freelist = r;	
   }
   else{
 	r->next = kmem.freelist;
-        r->prev = r;
+        r->prev = kmem.freelist;
         kmem.freelist = r;
   }
   if(kmem.use_lock)
@@ -105,7 +110,9 @@ kalloc(void)
     kmem.freelist = r->next;
     struct run *p;
     p = r->next;
-    p->prev = p;
+    if(p)
+    	p->prev = r->prev;
+    r->next = r->prev;
   }
   if(kmem.use_lock)
     release(&kmem.lock);
