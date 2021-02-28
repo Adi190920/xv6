@@ -15,8 +15,8 @@ extern char end[]; // first address after kernel loaded from ELF file
 
 struct run {
   struct run *next;
-  // double Linked list
-  // struct run *prev;
+  // double Linked 
+  struct run *prev;
 };
 
 struct {
@@ -78,10 +78,12 @@ kfree(char *v)
     p = kmem.tail;
     r->next = p->next;  
     p->next = r;
+    r->prev = p;
     kmem.tail = r;
   }
   else{
     r->next = kmem.freelist;
+    r->prev = kmem.freelist;
     kmem.freelist = r;
     kmem.tail = r;
   }
@@ -104,11 +106,17 @@ kalloc(void)
   r = kmem.freelist;
   if(r){
     kmem.freelist = r->next;
-    if(!r->next)
+    
+    if(!r->next){
       kmem.tail = r->next;
+      struct run *p;
+      p = r->next;
+      p->prev = r->prev;
+    }
   }
   if(kmem.use_lock)
     release(&kmem.lock);
   return (char*)r;
 }
+
 
